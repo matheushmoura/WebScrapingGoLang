@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/go-gota/gota/dataframe"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/transform"
 	"io"
 	"log"
 	"net/http"
@@ -37,7 +39,7 @@ func FileToDataframe(filepath string) (dataframe.DataFrame, error) {
 	}
 	defer f.Close()
 
-	reader := csv.NewReader(f)
+	reader := csv.NewReader(transform.NewReader(f, charmap.Windows1252.NewDecoder()))
 	reader.Comma = ';'
 	lines, err := reader.ReadAll()
 	if err != nil {
