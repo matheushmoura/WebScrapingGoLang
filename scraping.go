@@ -7,6 +7,7 @@ import (
 	"github.com/go-gota/gota/dataframe"
 	"golang.org/x/text/encoding/charmap"
 	"golang.org/x/text/transform"
+	"gopkg.in/mgo.v2"
 	"io"
 	"log"
 	"net/http"
@@ -50,6 +51,44 @@ func FileToDataframe(filepath string) (dataframe.DataFrame, error) {
 	return df, nil
 }
 
+func FileToMongo(filepath string) {
+	session, err := mgo.Dial("mongodb://localhost:27017")
+	if err != nil {
+		log.Fatalf("Error connecting to MongoDB: %v", err)
+	}
+	defer session.Close()
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		log.Fatalf("Erro ao abrir CSV: %v", err)
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	data, err := reader.ReadAll()
+	if err != nil {
+		log.Fatalf("Erro ao ler CSV: %v", err)
+	}
+
+	collection := session.DB("Scraping").C("Data")
+
+	docs := make([]interface{}, len(data))
+	for i, record := range data {
+		doc := make(map[string]interface{})
+		for j, header := range data[0] {
+			doc[header] = record[j]
+		}
+		docs[i] = doc
+	}
+
+	err = collection.Insert(docs...)
+	if err != nil {
+		log.Fatalf("Erro ao inserir no MongoDB: %v", err)
+	}
+
+	fmt.Println("Exportado para o MongoDB com sucesso!")
+}
+
 func DirectToDownload(linkDownload string) {
 	resDownload, erroDownload := goquery.NewDocument(linkDownload)
 	if erroDownload != nil {
@@ -71,9 +110,10 @@ func DirectToDownload(linkDownload string) {
 			if erro != nil {
 				panic(err)
 			} else {
-				// Mostrar a tabela
 				fmt.Println(df)
 			}
+
+			FileToMongo(fileUrl)
 
 			err := os.Remove(fileUrl)
 			if err != nil {
